@@ -11,7 +11,7 @@ polygon-api-client==1.13.3
 
 # Technical analysis
 pandas==2.2.2
-pandas-ta @ git+https://github.com/twopirllc/pandas-ta.git@main
+# pandas-ta removed — indicators computed with pure pandas/numpy in pattern_detector.py
 numpy==1.26.4
 
 # News sentiment (finBERT)
