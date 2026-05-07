@@ -16,6 +16,7 @@ from engine.news_scanner import scan_all
 from engine.risk_manager import RiskManager, RiskViolation
 from engine.trade_executor import TradeExecutor
 from models.signal import Signal, Action, EngineConfig, EngineStatus
+from activity import get_activity_logger
 
 log = structlog.get_logger()
 settings = get_settings()
@@ -58,6 +59,7 @@ class SignalEngine:
         self.running = True
         await set_engine_state({"running": True})
         log.info("engine_started", strategy=self.config.strategy)
+        get_activity_logger().info("engine", f"Engine started — strategy: {self.config.strategy}")
         self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
@@ -66,6 +68,7 @@ class SignalEngine:
         if self._task:
             self._task.cancel()
         log.info("engine_stopped")
+        get_activity_logger().info("engine", "Engine stopped")
 
     def update_config(self, new_config: EngineConfig) -> None:
         self.config = new_config
@@ -97,11 +100,13 @@ class SignalEngine:
                 break
             except Exception as e:
                 log.error("engine_loop_error", error=str(e))
+                get_activity_logger().failure("scan", f"Engine loop error: {e}")
             await asyncio.sleep(60)
 
     async def _scan_and_emit(self) -> None:
         tickers = self.config.watchlist
         log.info("scan_started", tickers=tickers)
+        activity = get_activity_logger()
 
         # Fetch market data + news concurrently
         bars_map, sentiment_map = await asyncio.gather(
@@ -119,6 +124,8 @@ class SignalEngine:
         signals = []
         for ticker in tickers:
             df = bars_map.get(ticker)
+            if df is None or df.empty:
+                activity.failure("data", f"No market data returned for {ticker}", ticker=ticker)
             sentiment = sentiment_map.get(ticker, {"score": 50.0, "label": "neutral"})
 
             tech_result = detect_patterns(df, strategy=self.config.strategy)
@@ -164,8 +171,11 @@ class SignalEngine:
         self._signals = signals
         self.last_scan_at = datetime.utcnow()
         log.info("scan_complete", signals=len(signals))
+        summary = ", ".join(f"{s.ticker}:{s.action.value}@{s.confidence:.0f}%" for s in signals)
+        activity.success("scan", f"Scan complete — {len(signals)} signals", detail=summary)
 
     async def _try_execute(self, signal: Signal) -> None:
+        activity = get_activity_logger()
         try:
             trade = await self.executor.execute_signal(
                 ticker=signal.ticker,
@@ -177,10 +187,18 @@ class SignalEngine:
             )
             self.trades_today += 1
             log.info("trade_executed", ticker=trade.ticker, side=trade.side, qty=trade.qty)
+            activity.success(
+                "trade",
+                f"{trade.ticker} {trade.side.upper()} {trade.qty:.0f} shares @ ${trade.price:.2f}",
+                detail=f"Total: ${trade.total_usd:.2f} | Confidence: {signal.confidence:.0f}%",
+                ticker=signal.ticker,
+            )
         except RiskViolation as e:
             log.info("trade_blocked_by_risk", reason=str(e))
+            activity.warning("risk", f"Trade blocked for {signal.ticker}: {e}", ticker=signal.ticker)
         except Exception as e:
             log.error("trade_execution_failed", ticker=signal.ticker, error=str(e))
+            activity.failure("trade", f"Trade failed for {signal.ticker}: {e}", ticker=signal.ticker)
 
 
 # Singleton instance shared across the app
