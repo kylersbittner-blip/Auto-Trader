@@ -126,4 +126,7 @@ venv.bak/
 dmypy.json
 
 # Pyre type checker
-.pyre/trained_models/
+.pyre/
+
+# Trained ML models (large binary files, local only)
+trained_models/
