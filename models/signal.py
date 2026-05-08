@@ -34,6 +34,8 @@ class Signal(BaseModel):
     patterns_detected: list[str] = Field(default_factory=list)
     reasoning: str
     price: float
+    regime: Optional[str] = None          # trending / ranging / breakout_setup
+    active_strategy: Optional[str] = None # momentum / mean_reversion / breakout
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 

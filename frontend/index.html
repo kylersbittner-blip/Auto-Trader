@@ -142,6 +142,8 @@
                 <th class="px-4 py-2.5 text-left font-medium">Ticker</th>
                 <th class="px-4 py-2.5 text-left font-medium">Action</th>
                 <th class="px-4 py-2.5 text-left font-medium w-32">Confidence</th>
+                <th class="px-4 py-2.5 text-left font-medium">Regime</th>
+                <th class="px-4 py-2.5 text-left font-medium">Strategy</th>
                 <th class="px-4 py-2.5 text-right font-medium">ML</th>
                 <th class="px-4 py-2.5 text-right font-medium">Tech</th>
                 <th class="px-4 py-2.5 text-right font-medium">Sent.</th>
@@ -164,6 +166,26 @@
                       </div>
                       <span class="text-xs font-mono text-slate-400 w-9 text-right" x-text="s.confidence+'%'"></span>
                     </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="text-xs px-1.5 py-0.5 rounded font-medium"
+                          :class="{
+                            'bg-blue-500/15 text-blue-400':   s.regime==='trending',
+                            'bg-yellow-500/15 text-yellow-400': s.regime==='ranging',
+                            'bg-green-500/15 text-green-400': s.regime==='breakout_setup',
+                            'bg-white/5 text-slate-500': !s.regime
+                          }"
+                          x-text="s.regime ? s.regime.replace('_',' ') : '—'"></span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="text-xs px-1.5 py-0.5 rounded font-medium"
+                          :class="{
+                            'bg-blue-500/10 text-blue-300':   s.active_strategy==='momentum',
+                            'bg-yellow-500/10 text-yellow-300': s.active_strategy==='mean_reversion',
+                            'bg-green-500/10 text-green-300': s.active_strategy==='breakout',
+                            'bg-white/5 text-slate-500': !s.active_strategy
+                          }"
+                          x-text="s.active_strategy ? s.active_strategy.replace('_',' ') : '—'"></span>
                   </td>
                   <td class="px-4 py-3 text-right">
                     <span class="text-xs font-mono"
