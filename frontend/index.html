@@ -7,100 +7,82 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
-          },
-        },
-      },
+      theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'], mono: ['"JetBrains Mono"','monospace'] } } }
     };
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
   <style>
-    [x-cloak] { display: none !important; }
-    body { background: #080b12; font-family: 'Inter', system-ui, sans-serif; }
-    .card { background: #0d1117; border: 1px solid rgba(255,255,255,0.07); }
-    .conf-track { background: rgba(255,255,255,0.08); height: 5px; border-radius: 3px; overflow: hidden; }
-    .conf-bar   { height: 5px; border-radius: 3px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
-    .pulse { animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    ::-webkit-scrollbar { width: 3px; height: 3px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
-    .row-hover:hover { background: rgba(255,255,255,0.025); }
-    select option { background: #0d1117; }
-    input[type=range] { accent-color: #6366f1; }
+    [x-cloak]{display:none!important}
+    body{background:#080b12;font-family:'Inter',system-ui,sans-serif}
+    .card{background:#0d1117;border:1px solid rgba(255,255,255,0.07)}
+    .card2{background:#111520;border:1px solid rgba(255,255,255,0.06)}
+    .conf-track{background:rgba(255,255,255,0.08);height:5px;border-radius:3px;overflow:hidden}
+    .conf-bar{height:5px;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+    .pulse{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    ::-webkit-scrollbar{width:3px;height:3px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:2px}
+    .row-hover:hover{background:rgba(255,255,255,0.025)}
+    select option{background:#0d1117}
+    input[type=range]{accent-color:#6366f1}
   </style>
 </head>
 
 <body class="text-slate-100 min-h-screen" x-data="app()" x-init="init()" x-cloak>
 
-  <!-- ─── Header ─────────────────────────────────────────────────────────── -->
-  <header class="flex items-center gap-4 px-5 py-3 border-b border-white/5 backdrop-blur-sm sticky top-0 z-30" style="background:rgba(8,11,18,0.92)">
-
-    <!-- Logo -->
+  <!-- ─── Header ──────────────────────────────────────────────────────────── -->
+  <header class="flex items-center gap-3 px-5 py-3 border-b border-white/5 sticky top-0 z-30" style="background:rgba(8,11,18,0.94);backdrop-filter:blur(8px)">
     <div class="flex items-center gap-2.5 shrink-0">
-      <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-xs font-bold tracking-tight">AT</div>
+      <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-xs font-bold">AT</div>
       <span class="font-semibold text-white text-sm">AutoTrader <span class="text-indigo-400">Pro</span></span>
     </div>
 
-    <!-- Engine status pill -->
     <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium"
-         :class="engineStatus?.running
-           ? 'border-green-500/30 bg-green-500/10 text-green-400'
-           : 'border-slate-700 bg-slate-800/60 text-slate-500'">
-      <div class="w-1.5 h-1.5 rounded-full"
-           :class="engineStatus?.running ? 'bg-green-400 pulse' : 'bg-slate-600'"></div>
+         :class="engineStatus?.running ? 'border-green-500/30 bg-green-500/10 text-green-400' : 'border-slate-700 bg-slate-800/60 text-slate-500'">
+      <div class="w-1.5 h-1.5 rounded-full" :class="engineStatus?.running ? 'bg-green-400 pulse' : 'bg-slate-600'"></div>
       <span x-text="engineStatus?.running ? 'ENGINE LIVE' : 'ENGINE STOPPED'"></span>
     </div>
 
-    <!-- Last scan -->
-    <span class="text-xs text-slate-600 hidden sm:block" x-show="engineStatus?.last_scan_at"
+    <span class="text-xs text-slate-600 hidden md:block" x-show="engineStatus?.last_scan_at"
           x-text="'Last scan ' + timeAgo(engineStatus?.last_scan_at)"></span>
+
+    <!-- ML model status pill -->
+    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium"
+         :class="modelsLoaded > 0 ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400' : 'border-slate-700 bg-slate-800/40 text-slate-600'">
+      <span x-text="modelsLoaded > 0 ? `🧠 ${modelsLoaded} ML model${modelsLoaded>1?'s':''} loaded` : '🧠 No models'"></span>
+    </div>
 
     <div class="flex-1"></div>
 
-    <!-- WS indicator -->
     <div class="flex items-center gap-1.5 mr-1">
       <div class="w-1.5 h-1.5 rounded-full transition-colors" :class="wsConnected ? 'bg-blue-400' : 'bg-slate-700'"></div>
       <span class="text-xs text-slate-600" x-text="wsConnected ? 'Live' : 'Polling'"></span>
     </div>
 
-    <!-- Action buttons -->
-    <button @click="startEngine()"
-            :disabled="engineStatus?.running || !controlKey"
+    <button @click="startEngine()" :disabled="engineStatus?.running || !controlKey"
             class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
-            :class="engineStatus?.running || !controlKey
-              ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-              : 'bg-green-600 hover:bg-green-500 text-white'">
-      ▶ Start
-    </button>
-    <button @click="stopEngine()"
-            :disabled="!engineStatus?.running || !controlKey"
+            :class="engineStatus?.running||!controlKey ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'">▶ Start</button>
+    <button @click="stopEngine()" :disabled="!engineStatus?.running || !controlKey"
             class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
-            :class="!engineStatus?.running || !controlKey
-              ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-              : 'bg-red-600 hover:bg-red-500 text-white'">
-      ■ Stop
+            :class="!engineStatus?.running||!controlKey ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 text-white'">■ Stop</button>
+    <button @click="trainModels()" :disabled="trainingActive || !controlKey"
+            class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+            :class="trainingActive||!controlKey ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-cyan-700 hover:bg-cyan-600 text-white'">
+      <span x-text="trainingActive ? '⏳ Training…' : '🧠 Train'"></span>
     </button>
     <button @click="showConfig = true"
-            class="px-3 py-1.5 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all">
-      ⚙ Config
-    </button>
+            class="px-3 py-1.5 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all">⚙ Config</button>
     <button @click="showKeyModal = true"
             class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
-            :class="controlKey
-              ? 'bg-slate-800 text-green-400'
-              : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20'">
+            :class="controlKey ? 'bg-slate-800 text-green-400' : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20'">
       🔑 <span x-text="controlKey ? 'Key ✓' : 'Set Key'"></span>
     </button>
   </header>
 
-  <!-- ─── Stats row ───────────────────────────────────────────────────────── -->
+  <!-- ─── Stats row ────────────────────────────────────────────────────────── -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 px-5 py-3">
     <div class="card rounded-xl px-4 py-3">
       <p class="text-xs text-slate-500 mb-1">Trades Today</p>
@@ -108,159 +90,290 @@
     </div>
     <div class="card rounded-xl px-4 py-3">
       <p class="text-xs text-slate-500 mb-1">Daily P&amp;L</p>
-      <p class="text-2xl font-semibold font-mono"
-         :class="(engineStatus?.daily_pnl ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'"
+      <p class="text-2xl font-semibold font-mono" :class="(engineStatus?.daily_pnl??0)>=0?'text-green-400':'text-red-400'"
          x-text="formatPnl(engineStatus?.daily_pnl)"></p>
     </div>
     <div class="card rounded-xl px-4 py-3">
       <p class="text-xs text-slate-500 mb-1">Strategy</p>
-      <p class="text-sm font-semibold text-indigo-400 uppercase tracking-wide mt-1"
-         x-text="engineStatus?.config?.strategy ?? '—'"></p>
+      <p class="text-sm font-semibold text-indigo-400 uppercase tracking-wide mt-1" x-text="engineStatus?.config?.strategy ?? '—'"></p>
     </div>
     <div class="card rounded-xl px-4 py-3">
       <p class="text-xs text-slate-500 mb-1">Watchlist</p>
-      <p class="text-xs font-mono text-slate-300 mt-1 leading-relaxed"
-         x-text="engineStatus?.config?.watchlist?.join(' · ') ?? '—'"></p>
+      <p class="text-xs font-mono text-slate-300 mt-1 leading-relaxed" x-text="engineStatus?.config?.watchlist?.join(' · ') ?? '—'"></p>
     </div>
   </div>
 
-  <!-- ─── Main grid ───────────────────────────────────────────────────────── -->
-  <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 px-5 pb-3" style="height: calc(100vh - 285px); min-height: 360px;">
+  <!-- ─── Tab bar ──────────────────────────────────────────────────────────── -->
+  <div class="flex items-center gap-1 px-5 pb-2">
+    <template x-for="t in ['Signals','Models','News']" :key="t">
+      <button @click="activeTab = t"
+              class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              :class="activeTab === t ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300'">
+        <span x-text="t"></span>
+        <span x-show="t==='Models' && modelsLoaded > 0" class="ml-1 text-cyan-400" x-text="`(${modelsLoaded})`"></span>
+      </button>
+    </template>
+  </div>
 
-    <!-- Signals table (3/5) -->
-    <div class="lg:col-span-3 card rounded-xl flex flex-col overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
-        <h2 class="text-sm font-semibold text-white">Signals</h2>
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-slate-600" x-text="signals.length + ' tickers'"></span>
-          <button @click="fetchSignals()" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">↻</button>
-        </div>
-      </div>
+  <!-- ─── Main content ─────────────────────────────────────────────────────── -->
+  <div class="px-5 pb-3" style="height:calc(100vh - 250px);min-height:360px">
 
-      <!-- Empty state -->
-      <div x-show="signals.length === 0"
-           class="flex flex-col items-center justify-center flex-1 text-slate-700 gap-2">
-        <div class="text-5xl">📊</div>
-        <p class="text-sm">No signals yet</p>
-        <p class="text-xs text-slate-600" x-show="!engineStatus?.running">Start the engine to generate signals</p>
-      </div>
+    <!-- SIGNALS TAB -->
+    <div x-show="activeTab === 'Signals'" class="grid grid-cols-1 lg:grid-cols-5 gap-3 h-full">
 
-      <!-- Table -->
-      <div class="overflow-auto flex-1" x-show="signals.length > 0">
-        <table class="w-full text-sm">
-          <thead class="sticky top-0" style="background:#0d1117">
-            <tr class="text-xs text-slate-600 uppercase tracking-wider border-b border-white/5">
-              <th class="px-4 py-2.5 text-left font-medium">Ticker</th>
-              <th class="px-4 py-2.5 text-left font-medium">Action</th>
-              <th class="px-4 py-2.5 text-left font-medium w-36">Confidence</th>
-              <th class="px-4 py-2.5 text-right font-medium">Tech</th>
-              <th class="px-4 py-2.5 text-right font-medium">Sent.</th>
-              <th class="px-4 py-2.5 text-right font-medium">Price</th>
-              <th class="px-4 py-2.5 text-left font-medium">Patterns</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-white/3">
-            <template x-for="s in signals" :key="s.ticker">
-              <tr class="row-hover transition-colors" :title="s.reasoning">
-                <td class="px-4 py-3">
-                  <span class="font-mono font-bold text-white text-sm" x-text="s.ticker"></span>
-                </td>
-                <td class="px-4 py-3">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
-                        :class="actionBadge(s.action)" x-text="s.action.toUpperCase()"></span>
-                </td>
-                <td class="px-4 py-3 w-36">
-                  <div class="flex items-center gap-2">
-                    <div class="conf-track flex-1">
-                      <div class="conf-bar" :class="actionBar(s.action)"
-                           :style="'width:' + s.confidence + '%'"></div>
-                    </div>
-                    <span class="text-xs font-mono text-slate-400 w-9 text-right"
-                          x-text="s.confidence + '%'"></span>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <span class="text-xs font-mono text-slate-500" x-text="s.technical_score + '%'"></span>
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <span class="text-xs font-mono"
-                        :class="s.sentiment_score > 60 ? 'text-green-400' : s.sentiment_score < 40 ? 'text-red-400' : 'text-slate-500'"
-                        x-text="s.sentiment_score + '%'"></span>
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <span class="font-mono text-white text-xs" x-text="'$' + s.price.toFixed(2)"></span>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex flex-wrap gap-1">
-                    <template x-for="p in s.patterns_detected" :key="p">
-                      <span class="text-xs px-1.5 py-0.5 rounded bg-white/5 text-slate-500"
-                            x-text="p"></span>
-                    </template>
-                    <span x-show="s.patterns_detected.length === 0"
-                          class="text-xs text-slate-700">—</span>
-                  </div>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Activity log (2/5) -->
-    <div class="lg:col-span-2 card rounded-xl flex flex-col overflow-hidden">
-      <div class="px-4 pt-3 pb-2 border-b border-white/5 shrink-0">
-        <div class="flex items-center justify-between mb-2.5">
-          <h2 class="text-sm font-semibold text-white">Activity</h2>
-          <div class="flex items-center gap-3 text-xs font-mono">
-            <span class="text-green-400" x-text="'✓ ' + (activityStats.successes ?? 0)"></span>
-            <span class="text-red-400"   x-text="'✗ ' + (activityStats.failures  ?? 0)"></span>
-            <span class="text-amber-400" x-text="'⚠ ' + (activityStats.warnings  ?? 0)"></span>
+      <!-- Signals table (3/5) -->
+      <div class="lg:col-span-3 card rounded-xl flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+          <h2 class="text-sm font-semibold text-white">Signals</h2>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-600" x-text="signals.length + ' tickers'"></span>
+            <button @click="fetchSignals()" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">↻</button>
           </div>
         </div>
-        <!-- Filter tabs -->
-        <div class="flex gap-1">
-          <template x-for="f in ['all','success','failure','warning','info']" :key="f">
-            <button @click="actFilter = f"
-                    class="px-2 py-0.5 rounded text-xs font-medium transition-all capitalize"
-                    :class="actFilter === f
-                      ? 'bg-white/10 text-white'
-                      : 'text-slate-600 hover:text-slate-400'"
-                    x-text="f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)">
-            </button>
+        <div x-show="signals.length === 0" class="flex flex-col items-center justify-center flex-1 text-slate-700 gap-2">
+          <div class="text-5xl">📊</div>
+          <p class="text-sm">No signals yet</p>
+          <p class="text-xs text-slate-600" x-show="!engineStatus?.running">Start the engine to generate signals</p>
+        </div>
+        <div class="overflow-auto flex-1" x-show="signals.length > 0">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0" style="background:#0d1117">
+              <tr class="text-xs text-slate-600 uppercase tracking-wider border-b border-white/5">
+                <th class="px-4 py-2.5 text-left font-medium">Ticker</th>
+                <th class="px-4 py-2.5 text-left font-medium">Action</th>
+                <th class="px-4 py-2.5 text-left font-medium w-32">Confidence</th>
+                <th class="px-4 py-2.5 text-right font-medium">ML</th>
+                <th class="px-4 py-2.5 text-right font-medium">Tech</th>
+                <th class="px-4 py-2.5 text-right font-medium">Sent.</th>
+                <th class="px-4 py-2.5 text-right font-medium">Price</th>
+                <th class="px-4 py-2.5 text-left font-medium">Patterns</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/[0.04]">
+              <template x-for="s in signals" :key="s.ticker">
+                <tr class="row-hover transition-colors" :title="s.reasoning">
+                  <td class="px-4 py-3"><span class="font-mono font-bold text-white text-sm" x-text="s.ticker"></span></td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
+                          :class="actionBadge(s.action)" x-text="s.action.toUpperCase()"></span>
+                  </td>
+                  <td class="px-4 py-3 w-32">
+                    <div class="flex items-center gap-2">
+                      <div class="conf-track flex-1">
+                        <div class="conf-bar" :class="actionBar(s.action)" :style="'width:'+s.confidence+'%'"></div>
+                      </div>
+                      <span class="text-xs font-mono text-slate-400 w-9 text-right" x-text="s.confidence+'%'"></span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <span class="text-xs font-mono"
+                          :class="modelForTicker(s.ticker) ? 'text-cyan-400' : 'text-slate-700'"
+                          x-text="modelForTicker(s.ticker) ? '✓' : '—'"></span>
+                  </td>
+                  <td class="px-4 py-3 text-right"><span class="text-xs font-mono text-slate-500" x-text="s.technical_score+'%'"></span></td>
+                  <td class="px-4 py-3 text-right">
+                    <span class="text-xs font-mono"
+                          :class="s.sentiment_score>60?'text-green-400':s.sentiment_score<40?'text-red-400':'text-slate-500'"
+                          x-text="s.sentiment_score+'%'"></span>
+                  </td>
+                  <td class="px-4 py-3 text-right"><span class="font-mono text-white text-xs" x-text="'$'+s.price.toFixed(2)"></span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-1">
+                      <template x-for="p in s.patterns_detected" :key="p">
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-white/5 text-slate-500" x-text="p"></span>
+                      </template>
+                      <span x-show="s.patterns_detected.length === 0" class="text-xs text-slate-700">—</span>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Activity log (2/5) -->
+      <div class="lg:col-span-2 card rounded-xl flex flex-col overflow-hidden">
+        <div class="px-4 pt-3 pb-2 border-b border-white/5 shrink-0">
+          <div class="flex items-center justify-between mb-2.5">
+            <h2 class="text-sm font-semibold text-white">Activity</h2>
+            <div class="flex items-center gap-3 text-xs font-mono">
+              <span class="text-green-400" x-text="'✓ '+(activityStats.successes??0)"></span>
+              <span class="text-red-400"   x-text="'✗ '+(activityStats.failures??0)"></span>
+              <span class="text-amber-400" x-text="'⚠ '+(activityStats.warnings??0)"></span>
+            </div>
+          </div>
+          <div class="flex gap-1">
+            <template x-for="f in ['all','success','failure','warning','info']" :key="f">
+              <button @click="actFilter=f"
+                      class="px-2 py-0.5 rounded text-xs font-medium transition-all capitalize"
+                      :class="actFilter===f?'bg-white/10 text-white':'text-slate-600 hover:text-slate-400'"
+                      x-text="f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1)"></button>
+            </template>
+          </div>
+        </div>
+        <div class="overflow-auto flex-1 divide-y divide-white/[0.04]">
+          <div x-show="filteredActivity.length===0" class="flex flex-col items-center justify-center h-full text-slate-700 gap-2">
+            <div class="text-4xl">📋</div><p class="text-sm">No activity yet</p>
+          </div>
+          <template x-for="e in filteredActivity" :key="e.id">
+            <div class="px-4 py-2.5 row-hover transition-colors">
+              <div class="flex items-start gap-2.5">
+                <span class="text-sm shrink-0 mt-0.5 font-mono" :class="typeColor(e.type)" x-text="typeIcon(e.type)"></span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2 mb-0.5">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span class="text-xs px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide shrink-0"
+                            :class="catBadge(e.category)" x-text="e.category"></span>
+                      <span x-show="e.ticker" class="text-xs font-mono font-bold text-indigo-400 shrink-0" x-text="e.ticker"></span>
+                    </div>
+                    <span class="text-xs text-slate-700 shrink-0 font-mono" x-text="timeAgo(e.timestamp)"></span>
+                  </div>
+                  <p class="text-xs leading-relaxed" :class="msgColor(e.type)" x-text="e.message"></p>
+                  <p x-show="e.detail" class="text-xs text-slate-600 mt-0.5 truncate" x-text="e.detail"></p>
+                </div>
+              </div>
+            </div>
           </template>
         </div>
       </div>
+    </div>
 
-      <!-- Feed -->
-      <div class="overflow-auto flex-1 divide-y divide-white/[0.04]">
-        <div x-show="filteredActivity.length === 0"
-             class="flex flex-col items-center justify-center h-full text-slate-700 gap-2">
-          <div class="text-4xl">📋</div>
-          <p class="text-sm">No activity yet</p>
-        </div>
-        <template x-for="e in filteredActivity" :key="e.id">
-          <div class="px-4 py-2.5 row-hover transition-colors">
-            <div class="flex items-start gap-2.5">
-              <span class="text-sm shrink-0 mt-0.5 font-mono"
-                    :class="typeColor(e.type)"
-                    x-text="typeIcon(e.type)"></span>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-2 mb-0.5">
-                  <div class="flex items-center gap-1.5 min-w-0">
-                    <span class="text-xs px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide shrink-0"
-                          :class="catBadge(e.category)" x-text="e.category"></span>
-                    <span x-show="e.ticker"
-                          class="text-xs font-mono font-bold text-indigo-400 shrink-0"
-                          x-text="e.ticker"></span>
-                  </div>
-                  <span class="text-xs text-slate-700 shrink-0 font-mono"
-                        x-text="timeAgo(e.timestamp)"></span>
+    <!-- MODELS TAB -->
+    <div x-show="activeTab === 'Models'" class="h-full overflow-auto">
+      <div x-show="modelsList.length === 0 && !trainingActive"
+           class="flex flex-col items-center justify-center h-full text-slate-700 gap-3">
+        <div class="text-6xl">🧠</div>
+        <p class="text-base">No trained models yet</p>
+        <p class="text-sm text-slate-600 max-w-sm text-center">Click <strong class="text-slate-400">Train</strong> in the header to fetch historical data and train an XGBoost model for each ticker in your watchlist.</p>
+        <button @click="trainModels()" :disabled="!controlKey || trainingActive"
+                class="mt-2 px-5 py-2.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm font-semibold transition-all disabled:opacity-40">
+          🧠 Train Models Now
+        </button>
+      </div>
+      <div x-show="trainingActive && modelsList.length === 0"
+           class="flex flex-col items-center justify-center h-full text-slate-600 gap-3">
+        <div class="text-5xl pulse">⏳</div>
+        <p class="text-sm">Training in progress — watch the Activity log for updates</p>
+      </div>
+      <div x-show="modelsList.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 py-1">
+        <template x-for="m in modelsList" :key="m.ticker">
+          <div class="card2 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="font-mono font-bold text-white text-lg" x-text="m.ticker"></span>
+                <span class="text-xs px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-semibold">XGBoost</span>
+              </div>
+              <span class="text-xs text-slate-600" x-text="'Trained ' + timeAgo(m.trained_at)"></span>
+            </div>
+
+            <!-- Backtest metrics -->
+            <div class="grid grid-cols-2 gap-2 mb-3" x-show="m.backtest && !m.backtest.error">
+              <div class="bg-white/3 rounded-lg px-3 py-2">
+                <p class="text-xs text-slate-600 mb-0.5">Total Return</p>
+                <p class="text-sm font-semibold font-mono"
+                   :class="(m.backtest?.total_return_pct??0)>=0?'text-green-400':'text-red-400'"
+                   x-text="((m.backtest?.total_return_pct??0)>=0?'+':'')+m.backtest?.total_return_pct+'%'"></p>
+              </div>
+              <div class="bg-white/3 rounded-lg px-3 py-2">
+                <p class="text-xs text-slate-600 mb-0.5">Sharpe Ratio</p>
+                <p class="text-sm font-semibold font-mono"
+                   :class="(m.backtest?.sharpe_ratio??0)>=1?'text-green-400':(m.backtest?.sharpe_ratio??0)>=0?'text-amber-400':'text-red-400'"
+                   x-text="m.backtest?.sharpe_ratio"></p>
+              </div>
+              <div class="bg-white/3 rounded-lg px-3 py-2">
+                <p class="text-xs text-slate-600 mb-0.5">Win Rate</p>
+                <p class="text-sm font-semibold font-mono text-slate-300"
+                   x-text="m.backtest?.win_rate_pct+'%'"></p>
+              </div>
+              <div class="bg-white/3 rounded-lg px-3 py-2">
+                <p class="text-xs text-slate-600 mb-0.5">Max Drawdown</p>
+                <p class="text-sm font-semibold font-mono text-red-400"
+                   x-text="m.backtest?.max_drawdown_pct+'%'"></p>
+              </div>
+              <div class="bg-white/3 rounded-lg px-3 py-2">
+                <p class="text-xs text-slate-600 mb-0.5">Profit Factor</p>
+                <p class="text-sm font-semibold font-mono"
+                   :class="(m.backtest?.profit_factor??0)>=1.5?'text-green-400':(m.backtest?.profit_factor??0)>=1?'text-amber-400':'text-red-400'"
+                   x-text="m.backtest?.profit_factor"></p>
+              </div>
+              <div class="bg-white/3 rounded-lg px-3 py-2">
+                <p class="text-xs text-slate-600 mb-0.5">Trades</p>
+                <p class="text-sm font-semibold font-mono text-slate-300" x-text="m.backtest?.n_trades"></p>
+              </div>
+            </div>
+
+            <!-- Backtest error -->
+            <div x-show="m.backtest?.error" class="bg-red-500/10 rounded-lg px-3 py-2 mb-3">
+              <p class="text-xs text-red-400" x-text="'Backtest: ' + m.backtest?.error"></p>
+            </div>
+
+            <!-- Walk-forward accuracy -->
+            <div class="border-t border-white/5 pt-3">
+              <div class="flex items-center justify-between text-xs mb-2">
+                <span class="text-slate-500">Walk-forward validation</span>
+                <span class="text-slate-400 font-mono" x-text="m.n_folds + ' folds'"></span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span class="text-slate-600">Dir. Accuracy</span>
+                  <span class="float-right font-mono"
+                        :class="(m.avg_dir_accuracy*100)>=55?'text-green-400':'text-amber-400'"
+                        x-text="Math.round(m.avg_dir_accuracy*100)+'%'"></span>
                 </div>
-                <p class="text-xs leading-relaxed"
-                   :class="msgColor(e.type)" x-text="e.message"></p>
-                <p x-show="e.detail"
-                   class="text-xs text-slate-600 mt-0.5 truncate" x-text="e.detail"></p>
+                <div>
+                  <span class="text-slate-600">Samples</span>
+                  <span class="float-right font-mono text-slate-400" x-text="m.n_samples?.toLocaleString()"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top features -->
+            <div class="border-t border-white/5 pt-3 mt-3" x-show="m.top_features?.length">
+              <p class="text-xs text-slate-600 mb-2">Top predictors</p>
+              <template x-for="[feat, imp] in (m.top_features??[]).slice(0,5)" :key="feat">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-xs font-mono text-slate-400 w-36 truncate" x-text="feat"></span>
+                  <div class="flex-1 bg-white/5 rounded-full h-1.5 overflow-hidden">
+                    <div class="h-1.5 rounded-full bg-indigo-500" :style="'width:'+Math.round(imp*100)+'%'"></div>
+                  </div>
+                  <span class="text-xs font-mono text-slate-600 w-8 text-right" x-text="Math.round(imp*100)+'%'"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- NEWS TAB -->
+    <div x-show="activeTab === 'News'" class="h-full overflow-auto">
+      <div x-show="newsItems.length === 0" class="flex flex-col items-center justify-center h-full text-slate-700 gap-2">
+        <div class="text-5xl">📰</div>
+        <p class="text-sm">No news available</p>
+        <p class="text-xs text-slate-600">Engine must be running to load sentiment</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 py-1">
+        <template x-for="(item, i) in newsItems" :key="i">
+          <div class="card2 rounded-xl p-4 hover:bg-white/[0.03] transition-colors cursor-default">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-mono font-bold" x-text="item.ticker"></span>
+              <span class="text-xs px-1.5 py-0.5 rounded font-semibold" :class="sentBadge(item.sentiment?.label)"
+                    x-text="item.sentiment?.label??'neutral'"></span>
+              <span class="text-xs text-slate-600 ml-auto font-mono" x-text="timeAgo(item.published_at)"></span>
+            </div>
+            <p class="text-sm text-slate-200 leading-relaxed mb-2"
+               style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden"
+               x-text="item.headline"></p>
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-slate-600" x-text="item.source"></p>
+              <div class="flex items-center gap-1" x-show="item.sentiment?.score">
+                <div class="w-12 bg-white/5 rounded-full h-1 overflow-hidden">
+                  <div class="h-1 rounded-full transition-all"
+                       :class="item.sentiment?.score>60?'bg-green-500':item.sentiment?.score<40?'bg-red-500':'bg-slate-500'"
+                       :style="'width:'+item.sentiment?.score+'%'"></div>
+                </div>
+                <span class="text-xs font-mono text-slate-600" x-text="item.sentiment?.score?.toFixed(0)"></span>
               </div>
             </div>
           </div>
@@ -269,432 +382,304 @@
     </div>
   </div>
 
-  <!-- ─── News feed ──────────────────────────────────────────────────────── -->
-  <div class="px-5 pb-5">
-    <div class="card rounded-xl overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <h2 class="text-sm font-semibold text-white">News Feed <span class="text-slate-600 font-normal text-xs ml-1">powered by finBERT</span></h2>
-        <button @click="fetchNews()" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">↻ Refresh</button>
-      </div>
-      <div class="flex gap-3 p-4 overflow-x-auto" style="min-height:100px">
-        <div x-show="newsItems.length === 0"
-             class="flex items-center text-slate-700 text-sm w-full justify-center">
-          No news available — engine must be running to load sentiment
-        </div>
-        <template x-for="(item, i) in newsItems" :key="i">
-          <div class="shrink-0 w-68 rounded-lg p-3 border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors cursor-default"
-               style="width:272px">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-mono font-bold"
-                    x-text="item.ticker"></span>
-              <span class="text-xs px-1.5 py-0.5 rounded font-semibold"
-                    :class="sentBadge(item.sentiment?.label)"
-                    x-text="item.sentiment?.label ?? 'neutral'"></span>
-              <span class="text-xs text-slate-600 ml-auto font-mono"
-                    x-text="timeAgo(item.published_at)"></span>
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed"
-               style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"
-               x-text="item.headline"></p>
-            <p class="text-xs text-slate-600 mt-1.5" x-text="item.source"></p>
-          </div>
-        </template>
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── Config modal ───────────────────────────────────────────────────── -->
-  <div x-show="showConfig" x-cloak
-       class="fixed inset-0 z-50 flex items-center justify-center p-4"
-       style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)"
-       @click.self="showConfig = false"
-       x-transition:enter="transition duration-150"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100">
+  <!-- ─── Config modal ─────────────────────────────────────────────────────── -->
+  <div x-show="showConfig" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)" @click.self="showConfig=false"
+       x-transition:enter="transition duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
     <div class="card rounded-2xl w-full max-w-lg p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-5">
         <h3 class="text-base font-semibold text-white">Engine Configuration</h3>
-        <button @click="showConfig = false" class="text-slate-500 hover:text-white transition-colors text-lg leading-none">✕</button>
+        <button @click="showConfig=false" class="text-slate-500 hover:text-white text-lg leading-none">✕</button>
       </div>
-
       <div class="space-y-4">
-        <!-- Strategy -->
         <div>
           <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">Strategy</label>
-          <select x-model="draft.strategy"
-                  class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500"
-                  style="background:#111827">
+          <select x-model="draft.strategy" class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500" style="background:#111827">
             <option value="momentum">Momentum</option>
             <option value="mean_reversion">Mean Reversion</option>
             <option value="breakout">Breakout</option>
             <option value="scalping">Scalping</option>
           </select>
         </div>
-
-        <!-- Sliders -->
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">
-              Min Confidence &nbsp;<span class="text-indigo-400 font-mono" x-text="draft.min_confidence + '%'"></span>
+              Min Confidence &nbsp;<span class="text-indigo-400 font-mono" x-text="draft.min_confidence+'%'"></span>
             </label>
             <input type="range" min="0" max="100" step="1" x-model.number="draft.min_confidence" class="w-full">
           </div>
           <div>
             <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">Max Position (USD)</label>
-            <input type="number" x-model.number="draft.max_position_usd"
-                   class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500"
-                   style="background:#111827">
+            <input type="number" x-model.number="draft.max_position_usd" class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500" style="background:#111827">
           </div>
         </div>
-
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">Stop Loss %</label>
-            <input type="number" step="0.1" x-model.number="draft.stop_loss_pct"
-                   class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500"
-                   style="background:#111827">
+            <input type="number" step="0.1" x-model.number="draft.stop_loss_pct" class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500" style="background:#111827">
           </div>
           <div>
             <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">Take Profit %</label>
-            <input type="number" step="0.1" x-model.number="draft.take_profit_pct"
-                   class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500"
-                   style="background:#111827">
+            <input type="number" step="0.1" x-model.number="draft.take_profit_pct" class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500" style="background:#111827">
           </div>
         </div>
-
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">Daily Loss Limit (USD)</label>
-            <input type="number" x-model.number="draft.daily_loss_limit_usd"
-                   class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500"
-                   style="background:#111827">
+            <input type="number" x-model.number="draft.daily_loss_limit_usd" class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500" style="background:#111827">
           </div>
           <div>
             <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">Max Daily Trades</label>
-            <input type="number" x-model.number="draft.max_daily_trades"
-                   class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500"
-                   style="background:#111827">
+            <input type="number" x-model.number="draft.max_daily_trades" class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500" style="background:#111827">
           </div>
         </div>
-
         <div>
           <label class="text-xs text-slate-500 uppercase tracking-wider block mb-1.5">Watchlist (comma-separated)</label>
-          <input type="text"
-                 :value="draft.watchlist?.join(', ')"
-                 @input="draft.watchlist = $event.target.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)"
-                 class="w-full rounded-lg px-3 py-2 text-sm font-mono text-white border border-white/10 focus:outline-none focus:border-indigo-500"
-                 style="background:#111827"
-                 placeholder="NVDA, AAPL, TSLA">
+          <input type="text" :value="draft.watchlist?.join(', ')"
+                 @input="draft.watchlist=$event.target.value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean)"
+                 class="w-full rounded-lg px-3 py-2 text-sm font-mono text-white border border-white/10 focus:outline-none focus:border-indigo-500" style="background:#111827" placeholder="NVDA, AAPL, TSLA">
         </div>
-
-        <!-- Auto Execute toggle -->
         <div class="flex items-center gap-3">
           <label class="text-xs text-slate-500 uppercase tracking-wider">Auto Execute</label>
-          <button @click="draft.auto_execute = !draft.auto_execute"
-                  class="relative w-10 h-5 rounded-full transition-colors focus:outline-none"
-                  :class="draft.auto_execute ? 'bg-green-500' : 'bg-slate-700'">
-            <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
-                 :class="draft.auto_execute ? 'translate-x-5' : ''"></div>
+          <button @click="draft.auto_execute=!draft.auto_execute"
+                  class="relative w-10 h-5 rounded-full transition-colors" :class="draft.auto_execute?'bg-green-500':'bg-slate-700'">
+            <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform" :class="draft.auto_execute?'translate-x-5':''"></div>
           </button>
-          <span class="text-xs" :class="draft.auto_execute ? 'text-green-400' : 'text-slate-600'"
-                x-text="draft.auto_execute ? 'ON — real trades will execute' : 'OFF — signals only'"></span>
+          <span class="text-xs" :class="draft.auto_execute?'text-green-400':'text-slate-600'"
+                x-text="draft.auto_execute?'ON — real trades will execute':'OFF — signals only'"></span>
         </div>
-
-        <div x-show="draft.auto_execute"
-             class="text-xs text-amber-300 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2 leading-relaxed">
+        <div x-show="draft.auto_execute" class="text-xs text-amber-300 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2 leading-relaxed">
           ⚠&nbsp; Auto-execute is enabled. The engine will place real broker orders when signals exceed the confidence threshold.
         </div>
       </div>
-
       <div class="flex gap-3 mt-6">
-        <button @click="saveConfig()"
-                class="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all">
-          Save &amp; Apply
-        </button>
-        <button @click="showConfig = false"
-                class="px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/8 text-slate-300 text-sm font-medium transition-all">
-          Cancel
-        </button>
+        <button @click="saveConfig()" class="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all">Save &amp; Apply</button>
+        <button @click="showConfig=false" class="px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/8 text-slate-300 text-sm font-medium transition-all">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- ─── Control key modal ──────────────────────────────────────────────── -->
-  <div x-show="showKeyModal" x-cloak
-       class="fixed inset-0 z-50 flex items-center justify-center p-4"
-       style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)"
-       @click.self="showKeyModal = false"
-       x-transition:enter="transition duration-150"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100">
+  <!-- ─── Control key modal ────────────────────────────────────────────────── -->
+  <div x-show="showKeyModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)" @click.self="showKeyModal=false"
+       x-transition:enter="transition duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
     <div class="card rounded-2xl w-full max-w-sm p-6 shadow-2xl">
       <h3 class="text-base font-semibold text-white mb-1">Control API Key</h3>
-      <p class="text-xs text-slate-500 mb-4 leading-relaxed">
-        Required to start/stop the engine and update settings.<br>
-        Stored in your browser only — never sent anywhere except your local server.
-      </p>
-      <input type="password"
-             x-model="controlKey"
-             @input="localStorage.setItem('controlKey', $event.target.value)"
+      <p class="text-xs text-slate-500 mb-4 leading-relaxed">Required to start/stop the engine, train models, and update settings. Stored in your browser only.</p>
+      <input type="password" x-model="controlKey" @input="localStorage.setItem('controlKey',$event.target.value)"
              placeholder="Paste your CONTROL_API_KEY…"
-             class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500 mb-4 font-mono"
-             style="background:#111827">
+             class="w-full rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-indigo-500 mb-4 font-mono" style="background:#111827">
       <div class="flex gap-3">
-        <button @click="showKeyModal = false"
-                class="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all">
-          Save
-        </button>
-        <button @click="controlKey = ''; localStorage.removeItem('controlKey'); showKeyModal = false"
-                class="px-4 py-2.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/25 text-red-400 text-sm font-medium transition-all">
-          Clear
-        </button>
+        <button @click="showKeyModal=false" class="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all">Save</button>
+        <button @click="controlKey='';localStorage.removeItem('controlKey');showKeyModal=false"
+                class="px-4 py-2.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/25 text-red-400 text-sm font-medium transition-all">Clear</button>
       </div>
     </div>
   </div>
 
-  <!-- ─── Toast stack ────────────────────────────────────────────────────── -->
+  <!-- ─── Toasts ───────────────────────────────────────────────────────────── -->
   <div class="fixed bottom-5 right-5 flex flex-col gap-2 z-50 pointer-events-none">
     <template x-for="t in toasts" :key="t.id">
       <div class="card rounded-xl px-4 py-3 flex items-center gap-3 shadow-2xl min-w-56 pointer-events-auto"
-           x-transition:enter="transition duration-200 ease-out"
-           x-transition:enter-start="opacity-0 translate-y-2"
-           x-transition:enter-end="opacity-100 translate-y-0"
-           x-transition:leave="transition duration-150 ease-in"
-           x-transition:leave-start="opacity-100"
-           x-transition:leave-end="opacity-0">
-        <span class="text-base" :class="t.type === 'success' ? 'text-green-400' : t.type === 'error' ? 'text-red-400' : 'text-blue-400'"
-              x-text="t.type === 'success' ? '✓' : t.type === 'error' ? '✗' : 'ℹ'"></span>
+           x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="opacity-0 translate-y-2"
+           x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition duration-150 ease-in"
+           x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <span :class="t.type==='success'?'text-green-400':t.type==='error'?'text-red-400':'text-blue-400'"
+              x-text="t.type==='success'?'✓':t.type==='error'?'✗':'ℹ'"></span>
         <span class="text-sm text-slate-200" x-text="t.message"></span>
       </div>
     </template>
   </div>
 
   <script>
-    function app() {
-      return {
-        // ── State ──────────────────────────────────────────────────────────
-        engineStatus:  null,
-        signals:       [],
-        activity:      [],
-        activityStats: { total: 0, successes: 0, failures: 0, warnings: 0, infos: 0 },
-        newsItems:     [],
-        controlKey:    localStorage.getItem('controlKey') || '',
-        showConfig:    false,
-        showKeyModal:  !localStorage.getItem('controlKey'),
-        actFilter:     'all',
-        wsConnected:   false,
-        ws:            null,
-        toasts:        [],
-        draft:         {},
+  function app() {
+    return {
+      engineStatus:  null,
+      signals:       [],
+      activity:      [],
+      activityStats: {total:0,successes:0,failures:0,warnings:0,infos:0},
+      newsItems:     [],
+      modelsList:    [],
+      modelsLoaded:  0,
+      trainingActive: false,
+      controlKey:    localStorage.getItem('controlKey') || '',
+      showConfig:    false,
+      showKeyModal:  !localStorage.getItem('controlKey'),
+      actFilter:     'all',
+      activeTab:     'Signals',
+      wsConnected:   false,
+      ws:            null,
+      toasts:        [],
+      draft:         {},
 
-        // ── Computed ───────────────────────────────────────────────────────
-        get filteredActivity() {
-          return this.actFilter === 'all'
-            ? this.activity
-            : this.activity.filter(e => e.type === this.actFilter);
-        },
+      get filteredActivity() {
+        return this.actFilter === 'all' ? this.activity : this.activity.filter(e => e.type === this.actFilter);
+      },
 
-        // ── Init ───────────────────────────────────────────────────────────
-        async init() {
-          await this.fetchAll();
-          this.connectWS();
-          setInterval(() => this.fetchStatus(),   10_000);
-          setInterval(() => this.fetchSignals(),  30_000);
-          setInterval(() => this.fetchActivity(),  8_000);
-          setInterval(() => this.fetchNews(),    300_000);
-        },
+      async init() {
+        await this.fetchAll();
+        this.connectWS();
+        setInterval(() => this.fetchStatus(),    10_000);
+        setInterval(() => this.fetchSignals(),   30_000);
+        setInterval(() => this.fetchActivity(),   8_000);
+        setInterval(() => this.fetchModels(),    20_000);
+        setInterval(() => this.fetchNews(),     300_000);
+      },
 
-        // ── API helpers ────────────────────────────────────────────────────
-        async fetchAll() {
-          await Promise.allSettled([
-            this.fetchStatus(),
-            this.fetchSignals(),
-            this.fetchActivity(),
-            this.fetchNews(),
-          ]);
-        },
+      async fetchAll() {
+        await Promise.allSettled([
+          this.fetchStatus(), this.fetchSignals(),
+          this.fetchActivity(), this.fetchModels(), this.fetchNews(),
+        ]);
+      },
 
-        async fetchStatus() {
-          try {
-            const r = await fetch('/engine/status');
-            if (!r.ok) return;
-            this.engineStatus = await r.json();
-            if (!Object.keys(this.draft).length && this.engineStatus?.config) {
-              this.draft = { ...this.engineStatus.config };
-            }
-          } catch {}
-        },
+      async fetchStatus() {
+        try {
+          const r = await fetch('/engine/status');
+          if (!r.ok) return;
+          this.engineStatus = await r.json();
+          if (!Object.keys(this.draft).length && this.engineStatus?.config) {
+            this.draft = { ...this.engineStatus.config };
+          }
+        } catch {}
+      },
 
-        async fetchSignals() {
-          try {
-            const r = await fetch('/signals');
-            if (!r.ok) return;
-            const d = await r.json();
-            this.signals = d.signals ?? [];
-          } catch {}
-        },
+      async fetchSignals() {
+        try {
+          const r = await fetch('/signals');
+          if (!r.ok) return;
+          const d = await r.json();
+          this.signals = d.signals ?? [];
+        } catch {}
+      },
 
-        async fetchActivity() {
-          try {
-            const [ar, sr] = await Promise.all([
-              fetch('/activity?limit=150'),
-              fetch('/activity/stats'),
-            ]);
-            if (ar.ok) this.activity      = await ar.json();
-            if (sr.ok) this.activityStats = await sr.json();
-          } catch {}
-        },
+      async fetchActivity() {
+        try {
+          const [ar, sr] = await Promise.all([fetch('/activity?limit=150'), fetch('/activity/stats')]);
+          if (ar.ok) this.activity      = await ar.json();
+          if (sr.ok) this.activityStats = await sr.json();
+        } catch {}
+      },
 
-        async fetchNews() {
-          try {
-            const r = await fetch('/news');
-            if (!r.ok) return;
-            const d = await r.json();
-            const items = [];
-            for (const [ticker, data] of Object.entries(d.tickers ?? {})) {
-              for (const a of (data.articles ?? [])) {
-                items.push({ ...a, ticker });
-              }
-            }
-            this.newsItems = items.sort(
-              (a, b) => new Date(b.published_at) - new Date(a.published_at)
-            );
-          } catch {}
-        },
+      async fetchModels() {
+        try {
+          const r = await fetch('/train/models');
+          if (!r.ok) return;
+          const d = await r.json();
+          this.modelsList    = d.models ?? [];
+          this.modelsLoaded  = this.modelsList.length;
+          this.trainingActive = (d.in_progress ?? []).length > 0;
+        } catch {}
+      },
 
-        async startEngine() {
-          if (!this.controlKey) { this.showKeyModal = true; return; }
-          try {
-            const r = await fetch('/engine/start', {
-              method: 'POST',
-              headers: { 'X-Control-Key': this.controlKey },
-            });
-            const d = await r.json();
-            if (r.ok) {
-              this.toast('Engine started', 'success');
-              await this.fetchStatus();
-            } else {
-              this.toast(d.detail || 'Could not start engine', 'error');
-            }
-          } catch { this.toast('Network error', 'error'); }
-        },
+      async fetchNews() {
+        try {
+          const r = await fetch('/news');
+          if (!r.ok) return;
+          const d = await r.json();
+          const items = [];
+          for (const [ticker, data] of Object.entries(d.tickers ?? {})) {
+            for (const a of (data.articles ?? [])) items.push({ ...a, ticker });
+          }
+          this.newsItems = items.sort((a,b) => new Date(b.published_at) - new Date(a.published_at));
+        } catch {}
+      },
 
-        async stopEngine() {
-          if (!this.controlKey) { this.showKeyModal = true; return; }
-          try {
-            const r = await fetch('/engine/stop', {
-              method: 'POST',
-              headers: { 'X-Control-Key': this.controlKey },
-            });
-            if (r.ok) {
-              this.toast('Engine stopped', 'success');
-              await this.fetchStatus();
-            } else {
-              const d = await r.json();
-              this.toast(d.detail || 'Could not stop engine', 'error');
-            }
-          } catch { this.toast('Network error', 'error'); }
-        },
+      async startEngine() {
+        if (!this.controlKey) { this.showKeyModal = true; return; }
+        try {
+          const r = await fetch('/engine/start', { method:'POST', headers:{'X-Control-Key':this.controlKey} });
+          const d = await r.json();
+          r.ok ? (this.toast('Engine started','success'), await this.fetchStatus())
+               : this.toast(d.detail||'Could not start engine','error');
+        } catch { this.toast('Network error','error'); }
+      },
 
-        async saveConfig() {
-          if (!this.controlKey) { this.showKeyModal = true; this.showConfig = false; return; }
-          try {
-            const r = await fetch('/engine/config', {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Control-Key': this.controlKey,
-              },
-              body: JSON.stringify(this.draft),
-            });
-            if (r.ok) {
-              this.toast('Configuration saved', 'success');
-              this.showConfig = false;
-              await this.fetchStatus();
-            } else {
-              const d = await r.json();
-              this.toast(d.detail || 'Failed to save config', 'error');
-            }
-          } catch { this.toast('Network error', 'error'); }
-        },
+      async stopEngine() {
+        if (!this.controlKey) { this.showKeyModal = true; return; }
+        try {
+          const r = await fetch('/engine/stop', { method:'POST', headers:{'X-Control-Key':this.controlKey} });
+          r.ok ? (this.toast('Engine stopped','success'), await this.fetchStatus())
+               : this.toast((await r.json()).detail||'Could not stop engine','error');
+        } catch { this.toast('Network error','error'); }
+      },
 
-        // ── WebSocket ──────────────────────────────────────────────────────
-        connectWS() {
-          const url = 'ws://' + window.location.host + '/ws/live';
-          try {
-            this.ws = new WebSocket(url);
-            this.ws.onopen    = () => { this.wsConnected = true; };
-            this.ws.onmessage = (e) => {
-              const sig = JSON.parse(e.data);
-              const idx = this.signals.findIndex(s => s.ticker === sig.ticker);
-              if (idx >= 0) this.signals[idx] = sig;
-              else this.signals.push(sig);
-            };
-            this.ws.onclose = () => {
-              this.wsConnected = false;
-              setTimeout(() => this.connectWS(), 5000);
-            };
-            this.ws.onerror = () => { this.wsConnected = false; };
-          } catch {}
-        },
+      async trainModels() {
+        if (!this.controlKey) { this.showKeyModal = true; return; }
+        try {
+          const r = await fetch('/train', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'X-Control-Key':this.controlKey },
+            body: JSON.stringify({ days: 365 }),
+          });
+          const d = await r.json();
+          if (r.ok) {
+            this.trainingActive = true;
+            this.activeTab = 'Signals';  // switch to activity log to watch progress
+            this.toast(`Training started for: ${d.queued.join(', ')}`, 'success');
+          } else {
+            this.toast(d.detail||'Training failed to start','error');
+          }
+        } catch { this.toast('Network error','error'); }
+      },
 
-        // ── Toasts ─────────────────────────────────────────────────────────
-        toast(message, type = 'info') {
-          const id = Date.now();
-          this.toasts.push({ id, message, type });
-          setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 3500);
-        },
+      async saveConfig() {
+        if (!this.controlKey) { this.showKeyModal = true; this.showConfig = false; return; }
+        try {
+          const r = await fetch('/engine/config', {
+            method:'PUT',
+            headers:{'Content-Type':'application/json','X-Control-Key':this.controlKey},
+            body: JSON.stringify(this.draft),
+          });
+          r.ok ? (this.toast('Configuration saved','success'), this.showConfig=false, await this.fetchStatus())
+               : this.toast((await r.json()).detail||'Failed to save','error');
+        } catch { this.toast('Network error','error'); }
+      },
 
-        // ── Style helpers ──────────────────────────────────────────────────
-        actionBadge(a) {
-          return { buy: 'bg-green-500/20 text-green-400', sell: 'bg-red-500/20 text-red-400', hold: 'bg-amber-500/20 text-amber-400' }[a] ?? 'bg-slate-700 text-slate-400';
-        },
-        actionBar(a) {
-          return { buy: 'bg-green-500', sell: 'bg-red-500', hold: 'bg-amber-500' }[a] ?? 'bg-slate-500';
-        },
-        typeIcon(t) {
-          return { success: '✓', failure: '✗', warning: '⚠', info: 'ℹ' }[t] ?? '·';
-        },
-        typeColor(t) {
-          return { success: 'text-green-400', failure: 'text-red-400', warning: 'text-amber-400', info: 'text-blue-400' }[t] ?? 'text-slate-500';
-        },
-        msgColor(t) {
-          return { success: 'text-slate-300', failure: 'text-red-300', warning: 'text-amber-300', info: 'text-slate-400' }[t] ?? 'text-slate-400';
-        },
-        catBadge(c) {
-          return {
-            scan:   'bg-blue-500/20 text-blue-400',
-            trade:  'bg-indigo-500/20 text-indigo-400',
-            engine: 'bg-purple-500/20 text-purple-400',
-            data:   'bg-slate-600/40 text-slate-400',
-            risk:   'bg-amber-500/20 text-amber-400',
-            signal: 'bg-cyan-500/20 text-cyan-400',
-          }[c] ?? 'bg-slate-700 text-slate-400';
-        },
-        sentBadge(label) {
-          return {
-            positive: 'bg-green-500/20 text-green-400',
-            negative: 'bg-red-500/20 text-red-400',
-            neutral:  'bg-slate-600/40 text-slate-400',
-          }[label] ?? 'bg-slate-700 text-slate-400';
-        },
+      connectWS() {
+        const url = 'ws://' + window.location.host + '/ws/live';
+        try {
+          this.ws = new WebSocket(url);
+          this.ws.onopen    = () => { this.wsConnected = true; };
+          this.ws.onmessage = (e) => {
+            const sig = JSON.parse(e.data);
+            const idx = this.signals.findIndex(s => s.ticker === sig.ticker);
+            idx >= 0 ? (this.signals[idx] = sig) : this.signals.push(sig);
+          };
+          this.ws.onclose = () => { this.wsConnected=false; setTimeout(()=>this.connectWS(),5000); };
+          this.ws.onerror = () => { this.wsConnected=false; };
+        } catch {}
+      },
 
-        // ── Formatters ─────────────────────────────────────────────────────
-        formatPnl(v) {
-          if (v == null) return '—';
-          return (v >= 0 ? '+$' : '-$') + Math.abs(v).toFixed(2);
-        },
-        timeAgo(ts) {
-          if (!ts) return '';
-          const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
-          if (s <   5) return 'just now';
-          if (s <  60) return `${s}s ago`;
-          if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-          if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-          return `${Math.floor(s / 86400)}d ago`;
-        },
-      };
-    }
+      modelForTicker(ticker) {
+        return this.modelsList.find(m => m.ticker === ticker);
+      },
+
+      toast(message, type='info') {
+        const id = Date.now();
+        this.toasts.push({id,message,type});
+        setTimeout(() => { this.toasts = this.toasts.filter(t=>t.id!==id); }, 3500);
+      },
+
+      // ── Styles ──────────────────────────────────────────────────────────────
+      actionBadge(a) { return {buy:'bg-green-500/20 text-green-400',sell:'bg-red-500/20 text-red-400',hold:'bg-amber-500/20 text-amber-400'}[a]??'bg-slate-700 text-slate-400'; },
+      actionBar(a)   { return {buy:'bg-green-500',sell:'bg-red-500',hold:'bg-amber-500'}[a]??'bg-slate-500'; },
+      typeIcon(t)    { return {success:'✓',failure:'✗',warning:'⚠',info:'ℹ'}[t]??'·'; },
+      typeColor(t)   { return {success:'text-green-400',failure:'text-red-400',warning:'text-amber-400',info:'text-blue-400'}[t]??'text-slate-500'; },
+      msgColor(t)    { return {success:'text-slate-300',failure:'text-red-300',warning:'text-amber-300',info:'text-slate-400'}[t]??'text-slate-400'; },
+      catBadge(c)    { return {scan:'bg-blue-500/20 text-blue-400',trade:'bg-indigo-500/20 text-indigo-400',engine:'bg-purple-500/20 text-purple-400',data:'bg-slate-600/40 text-slate-400',risk:'bg-amber-500/20 text-amber-400',signal:'bg-cyan-500/20 text-cyan-400'}[c]??'bg-slate-700 text-slate-400'; },
+      sentBadge(l)   { return {positive:'bg-green-500/20 text-green-400',negative:'bg-red-500/20 text-red-400',neutral:'bg-slate-600/40 text-slate-400'}[l]??'bg-slate-700 text-slate-400'; },
+      formatPnl(v)   { if(v==null)return'—'; return(v>=0?'+$':'-$')+Math.abs(v).toFixed(2); },
+      timeAgo(ts) {
+        if (!ts) return '';
+        const s = Math.floor((Date.now()-new Date(ts).getTime())/1000);
+        if(s<5)return'just now';if(s<60)return s+'s ago';
+        if(s<3600)return Math.floor(s/60)+'m ago';
+        if(s<86400)return Math.floor(s/3600)+'h ago';
+        return Math.floor(s/86400)+'d ago';
+      },
+    };
+  }
   </script>
 </body>
 </html>

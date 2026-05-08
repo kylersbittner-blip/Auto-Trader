@@ -10,6 +10,7 @@ import os
 
 from api.routes import signals, portfolio, trades, news, engine as engine_routes
 from api.routes import activity as activity_routes
+from api.routes import training as training_routes
 from api.websocket import router as ws_router
 
 log = structlog.get_logger()
@@ -52,7 +53,8 @@ app.include_router(portfolio.router,      prefix="/portfolio", tags=["Portfolio"
 app.include_router(trades.router,         prefix="/trades",    tags=["Trades"])
 app.include_router(news.router,           prefix="/news",      tags=["News"])
 app.include_router(engine_routes.router,  prefix="/engine",    tags=["Engine"])
-app.include_router(activity_routes.router, prefix="/activity", tags=["Activity"])
+app.include_router(activity_routes.router,  prefix="/activity", tags=["Activity"])
+app.include_router(training_routes.router,  prefix="/train",    tags=["Training"])
 app.include_router(ws_router)
 
 
