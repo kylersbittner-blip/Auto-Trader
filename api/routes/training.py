@@ -22,7 +22,7 @@ _training_in_progress: set[str] = set()
 
 class TrainRequest(BaseModel):
     tickers: Optional[list[str]] = None   # defaults to watchlist
-    days:    int = 365                    # days of history to train on
+    days:    int = 365                    # 1 year of history
 
 
 async def _train_ticker(ticker: str, days: int) -> None:
@@ -33,6 +33,7 @@ async def _train_ticker(ticker: str, days: int) -> None:
         from models.trainer import walk_forward_train
         from models.backtester import run_backtest
         import models.registry as registry
+        import gc
 
         activity.info("scan", f"Fetching {days}d of history for {ticker}…", ticker=ticker)
         df = await fetch_historical(ticker, days=days)
@@ -49,6 +50,8 @@ async def _train_ticker(ticker: str, days: int) -> None:
             return
 
         bt_result = await asyncio.to_thread(run_backtest, df)
+        del df
+        gc.collect()
 
         registry.save(ticker, train_result, bt_result)
 
@@ -66,28 +69,32 @@ async def _train_ticker(ticker: str, days: int) -> None:
         _training_in_progress.discard(ticker)
 
 
+async def _train_all_sequential(tickers: list[str], days: int) -> None:
+    """Train tickers one at a time to avoid OOM crashes."""
+    for ticker in tickers:
+        await _train_ticker(ticker, days)
+
+
 @router.post("", dependencies=[Depends(require_control_key)])
 async def train_models(req: TrainRequest, background_tasks: BackgroundTasks):
     """
-    Kick off model training in the background.
+    Kick off model training in the background (sequential to avoid OOM).
     Returns immediately — watch the Activity log for progress.
     """
     tickers = req.tickers or settings.watchlist
-    queued = []
-    skipped = []
+    queued  = [t for t in tickers if t not in _training_in_progress]
+    skipped = [t for t in tickers if t in _training_in_progress]
 
-    for ticker in tickers:
-        if ticker in _training_in_progress:
-            skipped.append(ticker)
-        else:
-            background_tasks.add_task(_train_ticker, ticker, req.days)
-            queued.append(ticker)
+    if queued:
+        for t in queued:
+            _training_in_progress.add(t)
+        background_tasks.add_task(_train_all_sequential, queued, req.days)
 
     return {
         "status":  "training_started",
         "queued":  queued,
         "skipped": skipped,
-        "message": "Training is running in the background. Watch the Activity log for progress.",
+        "message": "Training sequentially in the background. Watch the Activity log for progress.",
     }
 
 

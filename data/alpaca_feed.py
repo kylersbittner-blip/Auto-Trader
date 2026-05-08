@@ -84,7 +84,6 @@ def _fetch_historical_sync(
         start=start,
         end=end,
         feed="iex",
-        adjustment="all",      # split + dividend adjusted
     )
     bars = client.get_stock_bars(req)
     df = bars.df
@@ -98,9 +97,12 @@ def _fetch_historical_sync(
     df = df[["open", "high", "low", "close", "volume"]].copy()
     df.index = pd.to_datetime(df.index, utc=True)
 
-    # Keep only regular market hours (9:30–16:00 ET)
-    df = df.between_time("13:30", "20:00")   # UTC equivalent of 9:30–16:00 ET
-    return df.sort_index()
+    # Keep only regular market hours — convert to ET and filter 9:30–16:00
+    df_et = df.copy()
+    df_et.index = df_et.index.tz_convert("America/New_York")
+    df_et = df_et.between_time("09:30", "16:00")
+    df_et.index = df_et.index.tz_convert("UTC")
+    return df_et.sort_index()
 
 
 async def fetch_bars(ticker: str, days: int = 3, timeframe_minutes: int = 5) -> pd.DataFrame:
@@ -129,5 +131,5 @@ async def fetch_historical(ticker: str, days: int = 365, timeframe_minutes: int 
     try:
         return await asyncio.to_thread(_fetch_historical_sync, ticker, days, timeframe_minutes)
     except Exception as e:
-        log.warning("alpaca_historical_failed", ticker=ticker, error=str(e))
-        return pd.DataFrame()
+        log.error("alpaca_historical_failed", ticker=ticker, error=str(e))
+        raise

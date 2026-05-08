@@ -92,14 +92,14 @@ def walk_forward_train(df: pd.DataFrame) -> dict:
     df["y"] = le.fit_transform(df["label"])
 
     bpd         = _bars_per_day(df)
-    train_bars  = int(252  * bpd)   # ~1 trading year
-    test_bars   = int(21   * bpd)   # ~1 trading month
+    train_bars  = int(120  * bpd)   # ~6 trading months (fresh regime matters more than long history)
+    test_bars   = int(21   * bpd)   # ~1 trading month per fold
     min_train   = int(60   * bpd)   # minimum 60 days to start
 
-    # Use shorter training window if we don't have a full year
+    # Fallback if dataset is smaller than expected
     if len(df) < train_bars + test_bars:
-        train_bars = max(int(len(df) * 0.8), min_train)
-        test_bars  = len(df) - train_bars
+        train_bars = max(int(len(df) * 0.75), min_train)
+        test_bars  = max(int(len(df) * 0.10), 100)
 
     folds       = []
     accuracies  = []

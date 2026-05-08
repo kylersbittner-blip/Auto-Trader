@@ -1,0 +1,190 @@
+{
+  "ticker": "GOOGL",
+  "trained_at": "2026-05-08T04:20:25.512963",
+  "feature_cols": [
+    "ret_1",
+    "ret_2",
+    "ret_3",
+    "ret_5",
+    "ret_10",
+    "ret_20",
+    "vol_zscore",
+    "vol_ratio",
+    "rsi",
+    "macd_hist_norm",
+    "roc_10",
+    "atr_norm",
+    "bb_width",
+    "realized_vol_10",
+    "hl_range",
+    "ema9_21_ratio",
+    "price_ema50_dev",
+    "hour_sin",
+    "hour_cos",
+    "time_to_close"
+  ],
+  "n_folds": 6,
+  "n_samples": 19459,
+  "avg_accuracy": 0.4417,
+  "avg_dir_accuracy": 0.2368,
+  "top_features": [
+    [
+      "atr_norm",
+      0.10900761187076569
+    ],
+    [
+      "hour_cos",
+      0.0831146091222763
+    ],
+    [
+      "hl_range",
+      0.07577388733625412
+    ],
+    [
+      "vol_zscore",
+      0.05691514536738396
+    ],
+    [
+      "hour_sin",
+      0.05465700477361679
+    ],
+    [
+      "realized_vol_10",
+      0.05123612657189369
+    ],
+    [
+      "price_ema50_dev",
+      0.04772394150495529
+    ],
+    [
+      "bb_width",
+      0.045795589685440063
+    ],
+    [
+      "ema9_21_ratio",
+      0.04542012885212898
+    ],
+    [
+      "macd_hist_norm",
+      0.04306456074118614
+    ]
+  ],
+  "label_distribution": {
+    "hold": 0.433,
+    "buy": 0.299,
+    "sell": 0.269
+  },
+  "backtest": {
+    "total_return_pct": -4.68,
+    "sharpe_ratio": -8.36,
+    "max_drawdown_pct": -18.57,
+    "win_rate_pct": 50.0,
+    "profit_factor": 0.84,
+    "n_trades": 98,
+    "avg_trade_pct": -0.046,
+    "equity_curve": [
+      1.0,
+      1.0372,
+      1.0332,
+      1.0586,
+      1.0929,
+      1.1387,
+      1.1556,
+      1.14,
+      1.0796,
+      0.9849
+    ]
+  },
+  "folds": [
+    {
+      "fold": 1,
+      "train_start": "2025-05-08 15:10:00+00:00",
+      "train_end": "2025-10-28 19:30:00+00:00",
+      "test_start": "2025-10-28 19:35:00+00:00",
+      "test_end": "2025-11-26 19:40:00+00:00",
+      "n_test": 1628,
+      "accuracy": 0.3833,
+      "dir_accuracy": 0.3167,
+      "class_dist": {
+        "buy": 0.337,
+        "hold": 0.337,
+        "sell": 0.326
+      }
+    },
+    {
+      "fold": 2,
+      "train_start": "2025-06-09 14:20:00+00:00",
+      "train_end": "2025-11-26 19:40:00+00:00",
+      "test_start": "2025-11-26 19:45:00+00:00",
+      "test_end": "2025-12-30 18:20:00+00:00",
+      "n_test": 1628,
+      "accuracy": 0.4822,
+      "dir_accuracy": 0.2031,
+      "class_dist": {
+        "hold": 0.519,
+        "buy": 0.246,
+        "sell": 0.235
+      }
+    },
+    {
+      "fold": 3,
+      "train_start": "2025-07-10 16:20:00+00:00",
+      "train_end": "2025-12-30 18:20:00+00:00",
+      "test_start": "2025-12-30 18:25:00+00:00",
+      "test_end": "2026-01-30 17:25:00+00:00",
+      "n_test": 1628,
+      "accuracy": 0.4754,
+      "dir_accuracy": 0.2247,
+      "class_dist": {
+        "hold": 0.442,
+        "buy": 0.294,
+        "sell": 0.264
+      }
+    },
+    {
+      "fold": 4,
+      "train_start": "2025-08-08 15:20:00+00:00",
+      "train_end": "2026-01-30 17:25:00+00:00",
+      "test_start": "2026-01-30 17:30:00+00:00",
+      "test_end": "2026-03-03 16:25:00+00:00",
+      "n_test": 1628,
+      "accuracy": 0.4269,
+      "dir_accuracy": 0.3207,
+      "class_dist": {
+        "hold": 0.37,
+        "sell": 0.329,
+        "buy": 0.302
+      }
+    },
+    {
+      "fold": 5,
+      "train_start": "2025-09-09 14:30:00+00:00",
+      "train_end": "2026-03-03 16:25:00+00:00",
+      "test_start": "2026-03-03 16:30:00+00:00",
+      "test_end": "2026-04-01 14:20:00+00:00",
+      "n_test": 1628,
+      "accuracy": 0.4318,
+      "dir_accuracy": 0.2162,
+      "class_dist": {
+        "hold": 0.432,
+        "sell": 0.296,
+        "buy": 0.272
+      }
+    },
+    {
+      "fold": 6,
+      "train_start": "2025-10-08 13:40:00+00:00",
+      "train_end": "2026-04-01 14:20:00+00:00",
+      "test_start": "2026-04-01 14:25:00+00:00",
+      "test_end": "2026-04-30 19:45:00+00:00",
+      "n_test": 1628,
+      "accuracy": 0.4509,
+      "dir_accuracy": 0.1393,
+      "class_dist": {
+        "hold": 0.453,
+        "buy": 0.321,
+        "sell": 0.225
+      }
+    }
+  ]
+}

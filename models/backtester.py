@@ -45,8 +45,12 @@ def run_backtest(df: pd.DataFrame) -> dict:
     df = df.dropna(subset=feat_cols + ["label"]).iloc[:-FORWARD_BARS]
 
     bpd        = _bars_per_day(df)
-    train_bars = min(int(252 * bpd), int(len(df) * 0.8))
-    test_bars  = max(int(21  * bpd), len(df) - train_bars)
+    train_bars = int(120 * bpd)   # match trainer window
+    test_bars  = int(21  * bpd)
+
+    if len(df) < train_bars + test_bars:
+        train_bars = max(int(len(df) * 0.75), int(60 * bpd))
+        test_bars  = max(int(len(df) * 0.10), 100)
 
     trade_returns = []
     equity_curve  = [1.0]
@@ -104,11 +108,14 @@ def run_backtest(df: pd.DataFrame) -> dict:
     win_rate      = float(len(wins) / len(returns_arr))
     profit_factor = float(wins.sum() / abs(losses.sum())) if losses.sum() != 0 else float("inf")
 
-    # Annualised Sharpe
-    avg_ret       = float(returns_arr.mean())
-    std_ret       = float(returns_arr.std())
-    rf_per_trade  = RISK_FREE_PCT / BARS_PER_YEAR
-    sharpe        = ((avg_ret - rf_per_trade) / std_ret * np.sqrt(BARS_PER_YEAR)) if std_ret > 0 else 0.0
+    # Annualised Sharpe — scale by trades/year (not bars/year)
+    avg_ret        = float(returns_arr.mean())
+    std_ret        = float(returns_arr.std())
+    trading_days   = len(df) / bpd
+    years          = max(trading_days / 252, 0.01)
+    trades_per_yr  = len(trade_returns) / years
+    rf_per_trade   = RISK_FREE_PCT / max(trades_per_yr, 1)
+    sharpe         = ((avg_ret - rf_per_trade) / std_ret * np.sqrt(trades_per_yr)) if std_ret > 0 else 0.0
 
     # Max drawdown
     running_max   = np.maximum.accumulate(equity_arr)
