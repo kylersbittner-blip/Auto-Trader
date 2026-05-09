@@ -1,14 +1,12 @@
 """
 Signal engine — main orchestration loop.
-Runs every 60 seconds, scans all tickers, combines:
-  - ML model prediction      (50% when model available)
-  - Strategy-specific tech   (30% when model available, 65% fallback)
-  - News sentiment           (20% when model available, 35% fallback)
 
-Phase 3 additions:
-  - Regime detection per ticker → routes to best strategy
-  - Trade outcome recording → drives incremental retraining
-  - Auto-retrain trigger when 20 closed outcomes accumulate per ticker
+Phase 4 additions:
+  - Market hours filter (only trades in high-liquidity windows)
+  - Position manager (prevents double-entry, surfaces open positions)
+  - Strategy learner (adjusts weights from real win/loss history)
+  - Kelly-criterion position sizing (scales with edge, not fixed $)
+  - Equity curve snapshots every scan
 """
 import asyncio
 from datetime import datetime
@@ -18,20 +16,24 @@ import structlog
 from config import get_settings
 from data.alpaca_feed import fetch_bars_batch
 from data.cache import publish_signal, set_engine_state
-from data.trade_outcomes import record_entry, should_retrain, mark_used_in_training
+from data.trade_outcomes import record_entry, record_exit, get_open_entries, should_retrain, mark_used_in_training
+from data.equity_tracker import record_snapshot
 from engine.pattern_detector import detect_patterns
 from engine.regime_detector import detect_regime
 from engine.strategies import detect_mean_reversion, detect_breakout
 from engine.news_scanner import scan_all
 from engine.risk_manager import RiskManager, RiskViolation
 from engine.trade_executor import TradeExecutor
+from engine.position_manager import PositionManager
+from engine.strategy_learner import get_weight, get_best_strategy, record_outcome
+from engine.position_sizer import kelly_size
+from engine.market_hours import is_trading_window
 from models.signal import Signal, Action, EngineConfig, EngineStatus
 from activity import get_activity_logger
 
 log = structlog.get_logger()
 settings = get_settings()
 
-# Maps regime → strategy name (for display + routing)
 REGIME_STRATEGY = {
     "trending":       "momentum",
     "ranging":        "mean_reversion",
@@ -42,15 +44,15 @@ REGIME_STRATEGY = {
 class SignalEngine:
     def __init__(self, config: Optional[EngineConfig] = None):
         self.config = config or EngineConfig(
-            strategy         = settings.strategy,
-            min_confidence   = settings.min_confidence,
-            max_position_usd = settings.max_position_usd,
-            stop_loss_pct    = settings.stop_loss_pct,
-            take_profit_pct  = settings.take_profit_pct,
+            strategy             = settings.strategy,
+            min_confidence       = settings.min_confidence,
+            max_position_usd     = settings.max_position_usd,
+            stop_loss_pct        = settings.stop_loss_pct,
+            take_profit_pct      = settings.take_profit_pct,
             daily_loss_limit_usd = settings.daily_loss_limit_usd,
-            max_daily_trades = settings.max_daily_trades,
-            watchlist        = settings.watchlist,
-            auto_execute     = settings.auto_execute,
+            max_daily_trades     = settings.max_daily_trades,
+            watchlist            = settings.watchlist,
+            auto_execute         = settings.auto_execute,
         )
         self.running       = False
         self.last_scan_at: Optional[datetime] = None
@@ -58,9 +60,11 @@ class SignalEngine:
         self.daily_pnl     = 0.0
         self._task:        Optional[asyncio.Task] = None
         self._signals:     list[Signal] = []
+        self._account:     dict = {}
 
         self.risk     = RiskManager(self.config)
         self.executor = TradeExecutor(self.risk)
+        self.positions = PositionManager(self.executor)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -103,6 +107,12 @@ class SignalEngine:
     def get_latest_signals(self) -> list[Signal]:
         return self._signals
 
+    def get_open_positions(self) -> list[dict]:
+        return self.positions.get_all()
+
+    def get_account(self) -> dict:
+        return self._account
+
     # ── Internal loop ─────────────────────────────────────────────────────────
 
     async def _loop(self) -> None:
@@ -119,18 +129,32 @@ class SignalEngine:
     async def _scan_and_emit(self) -> None:
         tickers  = self.config.watchlist
         activity = get_activity_logger()
-        log.info("scan_started", tickers=tickers)
+
+        # ── Market hours gate ─────────────────────────────────────────────────
+        allowed, window_reason = is_trading_window()
+        if not allowed:
+            log.info("outside_trading_window", reason=window_reason)
+            # Still scan for signals but suppress execution
+        else:
+            log.info("scan_started", tickers=tickers, window=window_reason)
+
+        # ── Reconcile closed trades ───────────────────────────────────────────
+        self._reconcile_closed_trades()
+
+        # ── Refresh positions + account ────────────────────────────────────────
+        self.positions.refresh()
+        try:
+            acct = self.executor.get_account()
+            self._account  = acct
+            self.daily_pnl = acct["day_pnl"]
+            record_snapshot(acct["equity"], acct["cash"])
+        except Exception:
+            pass
 
         bars_map, sentiment_map = await asyncio.gather(
             fetch_bars_batch(tickers),
             scan_all(tickers),
         )
-
-        try:
-            account       = self.executor.get_account()
-            self.daily_pnl = account["day_pnl"]
-        except Exception:
-            pass
 
         signals = []
         for ticker in tickers:
@@ -141,18 +165,23 @@ class SignalEngine:
                 activity.failure("data", f"No market data for {ticker}", ticker=ticker)
                 continue
 
-            # ── Regime detection → strategy routing ───────────────────────────
-            regime          = detect_regime(df)
-            active_strategy = REGIME_STRATEGY.get(regime, "momentum")
+            # ── Regime detection ──────────────────────────────────────────────
+            regime = detect_regime(df)
 
-            if regime == "ranging":
+            # ── Strategy selection (learner can override regime default) ──────
+            learned_strategy = get_best_strategy(ticker, regime)
+            active_strategy  = learned_strategy or REGIME_STRATEGY.get(regime, "momentum")
+
+            if active_strategy == "mean_reversion":
                 tech_result = detect_mean_reversion(df)
-            elif regime == "breakout_setup":
+            elif active_strategy == "breakout":
                 tech_result = detect_breakout(df)
             else:
                 tech_result = detect_patterns(df, strategy="momentum")
 
-            tech_score = tech_result["score"]
+            # Apply learned weight to tech score
+            weight     = get_weight(ticker, active_strategy, regime)
+            tech_score = min(100.0, tech_result["score"] * weight)
             sent_score = sentiment["score"]
 
             # ── ML ensemble ───────────────────────────────────────────────────
@@ -160,9 +189,8 @@ class SignalEngine:
             ml_score = ml_pred["confidence"] if ml_pred else None
 
             if ml_score is not None:
-                ml_action  = ml_pred["action"]
                 confidence = ml_score * 0.50 + tech_score * 0.30 + sent_score * 0.20
-                action     = ml_action
+                action     = ml_pred["action"]
             else:
                 confidence = tech_score * 0.65 + sent_score * 0.35
                 action     = tech_result["action"]
@@ -191,16 +219,18 @@ class SignalEngine:
             signals.append(signal)
             await publish_signal(signal.model_dump(mode="json"))
 
-            if self.config.auto_execute and action != "hold":
+            if self.config.auto_execute and action != "hold" and allowed:
                 await self._try_execute(signal, regime, active_strategy)
+            elif self.config.auto_execute and action != "hold" and not allowed:
+                activity.info(
+                    "scan",
+                    f"Signal {ticker} {action.upper()} skipped — {window_reason}",
+                    ticker=ticker,
+                )
 
             # ── Incremental retrain check ─────────────────────────────────────
             if should_retrain(ticker):
-                activity.info(
-                    "scan",
-                    f"20 new trade outcomes for {ticker} — triggering retrain…",
-                    ticker=ticker,
-                )
+                activity.info("scan", f"20 new outcomes for {ticker} — triggering retrain…", ticker=ticker)
                 mark_used_in_training(ticker)
                 asyncio.create_task(self._retrain_ticker(ticker))
 
@@ -222,46 +252,119 @@ class SignalEngine:
             entry = registry.get(ticker)
             if entry is None:
                 return None
-            return predict_latest(
-                entry["model"],
-                entry["label_encoder"],
-                entry["feature_cols"],
-                df,
-            )
+            return predict_latest(entry["model"], entry["label_encoder"], entry["feature_cols"], df)
         except Exception as e:
             log.warning("ml_predict_failed", ticker=ticker, error=str(e))
             return None
 
-    # ── Trade execution with outcome recording ────────────────────────────────
+    # ── Closed-trade reconciliation ───────────────────────────────────────────
+
+    def _reconcile_closed_trades(self) -> None:
+        """
+        Match Alpaca's recently filled orders against our open trade entries.
+        For each match: record the exit price, compute P&L, and feed the
+        strategy learner so it can adjust future weights.
+        """
+        open_entries = get_open_entries()
+        if not open_entries:
+            return
+
+        try:
+            closed_orders = self.executor.get_recent_closed_orders(limit=100)
+        except Exception:
+            return
+
+        # Build a lookup: broker_id → filled_avg for fast matching
+        closed_by_id = {o["broker_id"]: o for o in closed_orders if o.get("filled_avg")}
+
+        for entry in open_entries:
+            broker_id = entry.get("broker_id")
+            if not broker_id or broker_id not in closed_by_id:
+                continue
+
+            filled = closed_by_id[broker_id]
+            exit_price = filled["filled_avg"]
+            if not exit_price:
+                continue
+
+            actual_return = record_exit(entry["id"], exit_price)
+            if actual_return is None:
+                continue
+
+            won = actual_return > 0
+            record_outcome(
+                ticker     = entry["ticker"],
+                strategy   = entry.get("strategy", "momentum"),
+                regime     = entry.get("regime", "ranging"),
+                won        = won,
+                return_pct = actual_return * 100,
+            )
+
+            activity = get_activity_logger()
+            pnl_str = f"+{actual_return*100:.2f}%" if won else f"{actual_return*100:.2f}%"
+            activity.success(
+                "trade",
+                f"{entry['ticker']} closed {pnl_str} — strategy learner updated",
+                ticker=entry["ticker"],
+            )
+            log.info(
+                "trade_reconciled",
+                trade_id=entry["id"],
+                ticker=entry["ticker"],
+                actual_return=round(actual_return, 4),
+                won=won,
+            )
+
+    # ── Trade execution ───────────────────────────────────────────────────────
 
     async def _try_execute(self, signal: Signal, regime: str, strategy: str) -> None:
         activity = get_activity_logger()
+
+        # Position guard — don't pyramid
+        skip, skip_reason = self.positions.should_skip(signal.ticker, signal.action.value)
+        if skip:
+            log.info("position_skip", ticker=signal.ticker, reason=skip_reason)
+            return
+
+        # Kelly sizing
+        account_equity = self._account.get("equity", self.config.max_position_usd * 5)
+        position_usd   = kelly_size(
+            ticker         = signal.ticker,
+            strategy       = strategy,
+            regime         = regime,
+            account_equity = account_equity,
+            max_position   = self.config.max_position_usd,
+            confidence     = signal.confidence,
+        )
+
         try:
             trade = await self.executor.execute_signal(
-                ticker       = signal.ticker,
-                action       = signal.action.value,
-                price        = signal.price,
-                confidence   = signal.confidence,
-                daily_pnl    = self.daily_pnl,
-                trades_today = self.trades_today,
+                ticker        = signal.ticker,
+                action        = signal.action.value,
+                price         = signal.price,
+                confidence    = signal.confidence,
+                daily_pnl     = self.daily_pnl,
+                trades_today  = self.trades_today,
+                requested_qty = position_usd / signal.price if signal.price > 0 else None,
             )
             self.trades_today += 1
+            broker_id = trade.broker_order_id
 
-            # Record the entry for outcome tracking
             record_entry(
-                ticker   = signal.ticker,
-                action   = signal.action.value,
-                price    = signal.price,
-                strategy = strategy,
-                regime   = regime,
+                ticker    = signal.ticker,
+                action    = signal.action.value,
+                price     = signal.price,
+                strategy  = strategy,
+                regime    = regime,
+                broker_id = broker_id,
             )
 
             log.info("trade_executed", ticker=trade.ticker, side=trade.side, qty=trade.qty)
             activity.success(
                 "trade",
                 f"{trade.ticker} {trade.side.upper()} {trade.qty:.0f} @ ${trade.price:.2f}"
-                f" [{strategy}/{regime}]",
-                detail = f"Total: ${trade.total_usd:.2f} | Conf: {signal.confidence:.0f}%",
+                f" [{strategy}/{regime}] ${position_usd:.0f}",
+                detail = f"Total: ${trade.total_usd:.2f} | Conf: {signal.confidence:.0f}% | Kelly: ${position_usd:.0f}",
                 ticker = signal.ticker,
             )
         except RiskViolation as e:
@@ -282,14 +385,13 @@ class SignalEngine:
             import models.registry as registry
             import gc
 
-            activity.info("scan", f"Incremental retrain: fetching fresh data for {ticker}…", ticker=ticker)
+            activity.info("scan", f"Retrain: fetching fresh data for {ticker}…", ticker=ticker)
             df = await fetch_historical(ticker, days=365)
-
             if df.empty or len(df) < 200:
                 activity.failure("scan", f"Not enough data for retrain of {ticker}", ticker=ticker)
                 return
 
-            activity.info("scan", f"Incremental retrain: training on {len(df):,} bars for {ticker}…", ticker=ticker)
+            activity.info("scan", f"Retrain: training on {len(df):,} bars for {ticker}…", ticker=ticker)
             train_result = await asyncio.to_thread(walk_forward_train, df)
             if "error" in train_result:
                 activity.failure("scan", f"Retrain failed for {ticker}: {train_result['error']}", ticker=ticker)
@@ -305,11 +407,8 @@ class SignalEngine:
                 f"dir_acc={train_result['avg_dir_accuracy']:.1%} | "
                 f"Sharpe={bt_result.get('sharpe_ratio', '?')}"
             )
-            activity.success("scan", f"Incremental retrain complete for {ticker}", detail=summary, ticker=ticker)
-
-            # Reload updated model into registry
+            activity.success("scan", f"Retrain complete for {ticker}", detail=summary, ticker=ticker)
             registry.load_all([ticker])
-
         except Exception as e:
             get_activity_logger().failure("scan", f"Retrain error for {ticker}: {e}", ticker=ticker)
 

@@ -121,6 +121,30 @@ class TradeExecutor:
             for p in positions
         ]
 
+    def get_recent_closed_orders(self, limit: int = 50) -> list[dict]:
+        """Fetch recently filled orders — used to detect bracket exits."""
+        from alpaca.trading.requests import GetOrdersRequest
+        from alpaca.trading.enums import QueryOrderStatus
+        try:
+            req    = GetOrdersRequest(status=QueryOrderStatus.CLOSED, limit=limit)
+            orders = self.client.get_orders(req)
+            return [
+                {
+                    "broker_id":   str(o.id),
+                    "ticker":      str(o.symbol),
+                    "side":        str(o.side.value),
+                    "filled_qty":  float(o.filled_qty or 0),
+                    "filled_avg":  float(o.filled_avg_price or 0),
+                    "status":      str(o.status.value),
+                    "filled_at":   str(o.filled_at) if o.filled_at else None,
+                }
+                for o in orders
+                if o.filled_avg_price is not None
+            ]
+        except Exception as e:
+            log.warning("get_closed_orders_failed", error=str(e))
+            return []
+
     def get_account(self) -> dict:
         """Fetch account summary (equity, cash, buying power)."""
         acct = self.client.get_account()

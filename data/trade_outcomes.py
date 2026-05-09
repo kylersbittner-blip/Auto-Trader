@@ -41,12 +41,13 @@ def _save(outcomes: list[dict]) -> None:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def record_entry(
-    ticker:   str,
-    action:   str,
-    price:    float,
-    strategy: str,
-    regime:   str,
-    features: Optional[dict] = None,
+    ticker:     str,
+    action:     str,
+    price:      float,
+    strategy:   str,
+    regime:     str,
+    broker_id:  Optional[str] = None,
+    features:   Optional[dict] = None,
 ) -> str:
     """Record a trade entry. Returns a short trade_id for later exit recording."""
     outcomes = _load()
@@ -59,6 +60,7 @@ def record_entry(
         "entry_time":       datetime.now(timezone.utc).isoformat(),
         "strategy":         strategy,
         "regime":           regime,
+        "broker_id":        broker_id,
         "features":         features or {},
         "exit_price":       None,
         "exit_time":        None,
@@ -68,6 +70,11 @@ def record_entry(
     _save(outcomes)
     log.info("trade_entry_recorded", trade_id=trade_id, ticker=ticker, action=action)
     return trade_id
+
+
+def get_open_entries() -> list[dict]:
+    """Return all entries that have no exit recorded yet."""
+    return [o for o in _load() if o["actual_return"] is None]
 
 
 def record_exit(trade_id: str, exit_price: float) -> Optional[float]:

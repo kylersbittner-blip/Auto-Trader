@@ -105,8 +105,8 @@
 
   <!-- ─── Tab bar ──────────────────────────────────────────────────────────── -->
   <div class="flex items-center gap-1 px-5 pb-2">
-    <template x-for="t in ['Signals','Models','News']" :key="t">
-      <button @click="activeTab = t"
+    <template x-for="t in ['Signals','Models','Performance','News']" :key="t">
+      <button @click="activeTab = t; if(t==='Performance') fetchPerformance()"
               class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
               :class="activeTab === t ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300'">
         <span x-text="t"></span>
@@ -368,6 +368,107 @@
       </div>
     </div>
 
+    <!-- PERFORMANCE TAB -->
+    <div x-show="activeTab === 'Performance'" class="h-full overflow-auto space-y-4 py-1">
+
+      <!-- Equity curve -->
+      <div class="card rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-white">Equity Curve</h2>
+          <span class="text-xs text-slate-600" x-text="equityCurve.length + ' snapshots'"></span>
+        </div>
+        <div x-show="equityCurve.length < 2" class="text-center text-slate-600 text-xs py-6">
+          Equity snapshots appear once the engine runs. Check back after a few scans.
+        </div>
+        <div x-show="equityCurve.length >= 2" class="relative" style="height:100px">
+          <canvas id="equityCanvas" style="width:100%;height:100px"></canvas>
+        </div>
+        <div class="flex items-center justify-between mt-3" x-show="equityCurve.length >= 2">
+          <span class="text-xs text-slate-600" x-text="equityCurve[0]?.t ? new Date(equityCurve[0].t).toLocaleDateString() : ''"></span>
+          <span class="text-xs font-mono" :class="(equityCurve[equityCurve.length-1]?.equity - equityCurve[0]?.equity) >= 0 ? 'text-green-400' : 'text-red-400'"
+                x-text="equityCurve.length >= 2 ? formatPnl(equityCurve[equityCurve.length-1]?.equity - equityCurve[0]?.equity) : ''"></span>
+        </div>
+      </div>
+
+      <!-- Open positions -->
+      <div class="card rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-white">Open Positions</h2>
+          <span class="text-xs text-slate-600" x-text="openPositions.length + ' open'"></span>
+        </div>
+        <div x-show="openPositions.length === 0" class="text-center text-slate-600 text-xs py-4">No open positions</div>
+        <table x-show="openPositions.length > 0" class="w-full text-xs">
+          <thead>
+            <tr class="text-slate-600 uppercase tracking-wider border-b border-white/5">
+              <th class="py-2 text-left font-medium">Ticker</th>
+              <th class="py-2 text-right font-medium">Qty</th>
+              <th class="py-2 text-right font-medium">Entry</th>
+              <th class="py-2 text-right font-medium">Current</th>
+              <th class="py-2 text-right font-medium">Value</th>
+              <th class="py-2 text-right font-medium">P&L</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <template x-for="p in openPositions" :key="p.ticker">
+              <tr class="row-hover">
+                <td class="py-2 font-mono font-bold text-white" x-text="p.ticker"></td>
+                <td class="py-2 text-right font-mono text-slate-400" x-text="p.qty"></td>
+                <td class="py-2 text-right font-mono text-slate-400" x-text="'$'+parseFloat(p.avg_entry).toFixed(2)"></td>
+                <td class="py-2 text-right font-mono text-slate-300" x-text="'$'+parseFloat(p.current_price).toFixed(2)"></td>
+                <td class="py-2 text-right font-mono text-slate-400" x-text="'$'+parseFloat(p.market_value).toFixed(0)"></td>
+                <td class="py-2 text-right font-mono font-semibold"
+                    :class="p.unrealized_pnl >= 0 ? 'text-green-400' : 'text-red-400'"
+                    x-text="formatPnl(p.unrealized_pnl) + ' (' + parseFloat(p.unrealized_pnl_pct).toFixed(1) + '%)'"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Strategy performance -->
+      <div class="card rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-white mb-3">Strategy Performance</h2>
+        <div x-show="Object.keys(strategyPerf).length === 0" class="text-center text-slate-600 text-xs py-4">
+          Performance data appears after trades close. Needs <span class="text-slate-500">10+</span> trades per strategy to show win rates.
+        </div>
+        <template x-for="[ticker, strategies] in Object.entries(strategyPerf)" :key="ticker">
+          <div class="mb-4">
+            <p class="text-xs font-mono font-bold text-indigo-400 mb-2" x-text="ticker"></p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <template x-for="[key, stats] in Object.entries(strategies)" :key="key">
+                <div class="card2 rounded-lg p-3">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium text-slate-400" x-text="key.replace('/',' / ')"></span>
+                    <span class="text-xs font-mono"
+                          :class="stats.weight > 1.1 ? 'text-green-400' : stats.weight < 0.9 ? 'text-red-400' : 'text-slate-500'"
+                          x-text="stats.weight.toFixed(2) + '×'"></span>
+                  </div>
+                  <div class="flex items-center gap-3 mt-2">
+                    <div>
+                      <p class="text-xs text-slate-600">Win Rate</p>
+                      <p class="text-sm font-mono font-semibold"
+                         :class="stats.win_rate >= 55 ? 'text-green-400' : stats.win_rate < 45 ? 'text-red-400' : 'text-slate-300'"
+                         x-text="stats.win_rate + '%'"></p>
+                    </div>
+                    <div>
+                      <p class="text-xs text-slate-600">Avg Return</p>
+                      <p class="text-sm font-mono font-semibold"
+                         :class="stats.avg_return >= 0 ? 'text-green-400' : 'text-red-400'"
+                         x-text="(stats.avg_return >= 0 ? '+' : '') + stats.avg_return + '%'"></p>
+                    </div>
+                    <div>
+                      <p class="text-xs text-slate-600">Trades</p>
+                      <p class="text-sm font-mono font-semibold text-slate-300" x-text="stats.n_trades"></p>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
     <!-- NEWS TAB -->
     <div x-show="activeTab === 'News'" class="h-full overflow-auto">
       <div x-show="newsItems.length === 0" class="flex flex-col items-center justify-center h-full text-slate-700 gap-2">
@@ -533,6 +634,9 @@
       ws:            null,
       toasts:        [],
       draft:         {},
+      openPositions:  [],
+      equityCurve:    [],
+      strategyPerf:   {},
 
       get filteredActivity() {
         return this.actFilter === 'all' ? this.activity : this.activity.filter(e => e.type === this.actFilter);
@@ -543,15 +647,17 @@
         this.connectWS();
         setInterval(() => this.fetchStatus(),    10_000);
         setInterval(() => this.fetchSignals(),   30_000);
-        setInterval(() => this.fetchActivity(),   8_000);
-        setInterval(() => this.fetchModels(),    20_000);
-        setInterval(() => this.fetchNews(),     300_000);
+        setInterval(() => this.fetchActivity(),    8_000);
+        setInterval(() => this.fetchModels(),     20_000);
+        setInterval(() => this.fetchNews(),      300_000);
+        setInterval(() => this.fetchPerformance(), 30_000);
       },
 
       async fetchAll() {
         await Promise.allSettled([
           this.fetchStatus(), this.fetchSignals(),
-          this.fetchActivity(), this.fetchModels(), this.fetchNews(),
+          this.fetchActivity(), this.fetchModels(),
+          this.fetchNews(), this.fetchPerformance(),
         ]);
       },
 
@@ -592,6 +698,51 @@
           this.modelsLoaded  = this.modelsList.length;
           this.trainingActive = (d.in_progress ?? []).length > 0;
         } catch {}
+      },
+
+      async fetchPerformance() {
+        try {
+          if (!this.controlKey) return;
+          const [perfR, curveR, posR] = await Promise.all([
+            fetch('/portfolio/performance', {headers:{'X-Control-Key':this.controlKey}}),
+            fetch('/portfolio/equity-curve', {headers:{'X-Control-Key':this.controlKey}}),
+            fetch('/portfolio', {headers:{'X-Control-Key':this.controlKey}}),
+          ]);
+          if (perfR.ok)  { const d = await perfR.json();  this.strategyPerf  = d.strategy_performance ?? {}; }
+          if (curveR.ok) { const d = await curveR.json(); this.equityCurve   = d.curve ?? []; this.$nextTick(() => this.drawEquityChart()); }
+          if (posR.ok)   { const d = await posR.json();   this.openPositions = d.positions ?? []; }
+        } catch {}
+      },
+
+      drawEquityChart() {
+        const canvas = document.getElementById('equityCanvas');
+        if (!canvas || this.equityCurve.length < 2) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width  = canvas.offsetWidth * window.devicePixelRatio;
+        canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        const w = canvas.offsetWidth, h = canvas.offsetHeight;
+        const vals = this.equityCurve.map(p => p.equity);
+        const min = Math.min(...vals), max = Math.max(...vals);
+        const range = max - min || 1;
+        const toY = v => h - ((v - min) / range) * (h - 8) - 4;
+        const toX = i => (i / (vals.length - 1)) * w;
+        // Gradient fill
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        const up = vals[vals.length-1] >= vals[0];
+        grad.addColorStop(0, up ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.beginPath();
+        ctx.moveTo(toX(0), toY(vals[0]));
+        vals.forEach((v,i) => ctx.lineTo(toX(i), toY(v)));
+        ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+        ctx.fillStyle = grad; ctx.fill();
+        // Line
+        ctx.beginPath();
+        ctx.moveTo(toX(0), toY(vals[0]));
+        vals.forEach((v,i) => ctx.lineTo(toX(i), toY(v)));
+        ctx.strokeStyle = up ? '#34d399' : '#f87171';
+        ctx.lineWidth = 1.5; ctx.stroke();
       },
 
       async fetchNews() {
